@@ -2,14 +2,22 @@
 #  admin/config.py  —  Настройки бота
 # =============================================================================
 
-# Названия филиалов  (ключ = branch_id который вводится в .env на устройстве)
-BRANCHES = {
-    "branch_1": "Лассио",
-    "branch_2": "Толе би",
-    "branch_3": "Рахат",
-    "branch_4": "Достык",
-    "branch_5": "Амир",
-}
+
+# Названия филиалов теперь хранятся в branches.json
+import json
+import os
+
+BRANCHES_FILE = os.path.join(os.path.dirname(__file__), "branches.json")
+def load_branches():
+    if not os.path.exists(BRANCHES_FILE):
+        return {}
+    try:
+        with open(BRANCHES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+BRANCHES = load_branches()
 
 # HTTP-сервер (агенты опрашивают этот адрес)
 API_HOST = "0.0.0.0"

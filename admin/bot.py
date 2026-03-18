@@ -1,3 +1,35 @@
+# ---------------------------------------------------------------------------
+# Админская команда для добавления филиала
+# ---------------------------------------------------------------------------
+async def cmd_addbranch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return await update.message.reply_text("⛔ Только для Админа.")
+
+    # Формат: /addbranch branch_id Название
+    args = update.message.text.split(maxsplit=2)
+    if len(args) < 3:
+        return await update.message.reply_text("⚠️ Ошибка формата.\nИспользование: `/addbranch branch_id Название`", parse_mode="Markdown")
+
+    _, branch_id, branch_name = args
+
+    # Загрузка текущих филиалов
+    branches_file = os.path.join(os.path.dirname(__file__), "branches.json")
+    try:
+        with open(branches_file, "r", encoding="utf-8") as f:
+            branches = json.load(f)
+    except Exception:
+        branches = {}
+
+    if branch_id in branches:
+        return await update.message.reply_text(f"❗ Филиал с ID '{branch_id}' уже существует: {branches[branch_id]}")
+
+    branches[branch_id] = branch_name
+    try:
+        with open(branches_file, "w", encoding="utf-8") as f:
+            json.dump(branches, f, ensure_ascii=False, indent=4)
+        await update.message.reply_text(f"✅ Филиал успешно добавлен!\n\nID: {branch_id}\nНазвание: {branch_name}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка при сохранении филиала: {e}")
 #!/usr/bin/env python3
 """
 admin/bot.py — Административный Telegram-бот + HTTP API для агентов.
@@ -381,6 +413,7 @@ async def post_init(application: Application):
         BotCommand("start", "Главное меню"),
         BotCommand("listcodes", "Список кодов"),
         BotCommand("listmods", "Список модераторов"),
+        BotCommand("addbranch", "Добавить филиал"),
     ]
     
     # Попытаться установить админское меню эксклюзивно для админа
@@ -421,6 +454,7 @@ def main():
     ptb_app.add_handler(CommandHandler("addmod", cmd_addmod))
     ptb_app.add_handler(CommandHandler("delmod", cmd_delmod))
     ptb_app.add_handler(CommandHandler("listmods", cmd_listmods))
+    ptb_app.add_handler(CommandHandler("addbranch", cmd_addbranch))
     
     ptb_app.job_queue.run_repeating(process_results_sender, interval=5, first=5)
 

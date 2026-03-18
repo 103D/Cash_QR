@@ -7,13 +7,13 @@
 ### 1. Подключение к серверу
 Подключитесь к вашему Ubuntu-серверу по SSH, например через PowerShell:
 ```bash
-ssh -i "ПУТЬ_ДО_КЛЮЧА\ключ.key" ubuntu@ВАШ_АЙПИ
+ssh -i "C:\Users\user\Downloads\Telegram Desktop\ssh-key-2026-03-17.key" ubuntu@151.145.33.116
 ```
 
 ### 2. Передача файлов на сервер (Пуш обновлений)
 На вашем **локальном** компьютере перейдите в консоль и скопируйте всю папку `admin` на сервер:
 ```bash
-scp -o StrictHostKeyChecking=no -i "ПУТЬ_ДО_КЛЮЧА\ключ.key" -r "\Путь\К\Вашему\Проекту\cash_desk_app\admin" ubuntu@ВАШ_АЙПИ:/home/ubuntu/
+scp -o StrictHostKeyChecking=no -i "C:\Users\user\Desktop\ssh-key-2026-03-17.key" -r "C:\Users\user\Desktop\Diyar\Cash_QR\cash_desk_app\admin" ubuntu@151.145.33.116:/home/ubuntu/
 ```
 
 ### 3. Настройка переменных (`.env`)

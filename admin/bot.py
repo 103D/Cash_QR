@@ -1,4 +1,36 @@
 # ---------------------------------------------------------------------------
+# Админская команда для удаления филиала
+# ---------------------------------------------------------------------------
+async def cmd_delbranch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return await update.message.reply_text("⛔ Только для Админа.")
+
+    # Формат: /delbranch branch_id
+    args = update.message.text.split(maxsplit=1)
+    if len(args) < 2:
+        return await update.message.reply_text("⚠️ Ошибка формата.\nИспользование: `/delbranch branch_id`", parse_mode="Markdown")
+
+    _, branch_id = args
+
+    branches_file = os.path.join(os.path.dirname(__file__), "branches.json")
+    try:
+        with open(branches_file, "r", encoding="utf-8") as f:
+            branches = json.load(f)
+    except Exception:
+        branches = {}
+
+    if branch_id not in branches:
+        return await update.message.reply_text(f"❌ Филиал с ID '{branch_id}' не найден.")
+
+    branch_name = branches[branch_id]
+    del branches[branch_id]
+    try:
+        with open(branches_file, "w", encoding="utf-8") as f:
+            json.dump(branches, f, ensure_ascii=False, indent=4)
+        await update.message.reply_text(f"✅ Филиал удалён!\n\nID: {branch_id}\nНазвание: {branch_name}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка при удалении филиала: {e}")
+# ---------------------------------------------------------------------------
 # Админская команда для добавления филиала
 # ---------------------------------------------------------------------------
 async def cmd_addbranch(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -429,6 +461,7 @@ async def post_init(application: Application):
 # Запуск
 # ---------------------------------------------------------------------------
 def main():
+        ptb_app.add_handler(CommandHandler("delbranch", cmd_delbranch))
     if not BOT_TOKEN:
         raise SystemExit("❌ BOT_TOKEN не задан. Создай .env файл.")
     if not ADMIN_USER_ID:

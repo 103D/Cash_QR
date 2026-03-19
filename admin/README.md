@@ -36,6 +36,8 @@ bash start.sh
 **Перезагрузка бота (после обновлений в коде Python):**
 ```bash
 tmux kill-session -t cashdesk_bot
+sudo apt install doc2unix
+doc2unix starts.sh
 bash start.sh
 ```
 

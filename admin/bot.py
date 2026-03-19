@@ -1,35 +1,68 @@
+
+#!/usr/bin/env python3
+"""
+admin/bot.py — Административный Telegram-бот + HTTP API для агентов.
+"""
+
+import logging
+import os
+import json
+import threading
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request as freq
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
+)
+
 # ---------------------------------------------------------------------------
-# Админская команда для удаления филиала
+# Команда /help для администратора
 # ---------------------------------------------------------------------------
-async def cmd_delbranch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return await update.message.reply_text("⛔ Только для Админа.")
+    text = """*Доступные команды администратора:*
+/help — показать это сообщение
+/addbranch branch_id Название — добавить филиал
+/delbranch branch_id — удалить филиал
+/setadmin user_id — назначить нового администратора (ID)
+/addcode Название payload — добавить код
+/delcode Название — удалить код
+/listcodes — список кодов
+/addmod user_id — добавить модератора
+/delmod user_id — удалить модератора
+/listmods — список модераторов
+"""
+    await update.message.reply_text(text, parse_mode="Markdown")
 
-    # Формат: /delbranch branch_id
-    args = update.message.text.split(maxsplit=1)
-    if len(args) < 2:
-        return await update.message.reply_text("⚠️ Ошибка формата.\nИспользование: `/delbranch branch_id`", parse_mode="Markdown")
+# ---------------------------------------------------------------------------
+# Команда /setadmin для смены администратора
+# ---------------------------------------------------------------------------
+async def cmd_setadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return await update.message.reply_text("⛔ Только для текущего Админа.")
 
-    _, branch_id = args
+    args = update.message.text.split()
+    if len(args) < 2 or not args[1].isdigit():
+        return await update.message.reply_text("⚠️ Использование: `/setadmin user_id`", parse_mode="Markdown")
 
-    branches_file = os.path.join(os.path.dirname(__file__), "branches.json")
+    new_admin_id = int(args[1])
+    # Меняем ADMIN_USER_ID в .env
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
     try:
-        with open(branches_file, "r", encoding="utf-8") as f:
-            branches = json.load(f)
-    except Exception:
-        branches = {}
-
-    if branch_id not in branches:
-        return await update.message.reply_text(f"❌ Филиал с ID '{branch_id}' не найден.")
-
-    branch_name = branches[branch_id]
-    del branches[branch_id]
-    try:
-        with open(branches_file, "w", encoding="utf-8") as f:
-            json.dump(branches, f, ensure_ascii=False, indent=4)
-        await update.message.reply_text(f"✅ Филиал удалён!\n\nID: {branch_id}\nНазвание: {branch_name}")
+        # Читаем .env
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        # Меняем ADMIN_USER_ID
+        with open(env_path, "w", encoding="utf-8") as f:
+            for line in lines:
+                if line.startswith("ADMIN_USER_ID="):
+                    f.write(f"ADMIN_USER_ID={new_admin_id}\n")
+                else:
+                    f.write(line)
+        await update.message.reply_text(f"✅ Новый админ установлен: {new_admin_id}\nПерезапустите бота для применения изменений.")
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка при удалении филиала: {e}")
+        await update.message.reply_text(f"❌ Ошибка при смене админа: {e}")
 # ---------------------------------------------------------------------------
 # Админская команда для добавления филиала
 # ---------------------------------------------------------------------------
@@ -62,6 +95,38 @@ async def cmd_addbranch(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Филиал успешно добавлен!\n\nID: {branch_id}\nНазвание: {branch_name}")
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка при сохранении филиала: {e}")
+
+# ---------------------------------------------------------------------------
+# Админская команда для удаления филиала
+# ---------------------------------------------------------------------------
+async def cmd_delbranch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return await update.message.reply_text("⛔ Только для Админа.")
+
+    # Формат: /delbranch branch_id
+    args = update.message.text.split(maxsplit=1)
+    if len(args) < 2:
+        return await update.message.reply_text("⚠️ Использование: `/delbranch branch_id`", parse_mode="Markdown")
+
+    branch_id = args[1].strip()
+    branches_file = os.path.join(os.path.dirname(__file__), "branches.json")
+    try:
+        with open(branches_file, "r", encoding="utf-8") as f:
+            branches = json.load(f)
+    except Exception:
+        branches = {}
+
+    if branch_id not in branches:
+        return await update.message.reply_text(f"❌ Филиал с ID '{branch_id}' не найден.")
+
+    branch_name = branches[branch_id]
+    del branches[branch_id]
+    try:
+        with open(branches_file, "w", encoding="utf-8") as f:
+            json.dump(branches, f, ensure_ascii=False, indent=4)
+        await update.message.reply_text(f"✅ Филиал удалён!\n\nID: {branch_id}\nНазвание: {branch_name}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка при удалении филиала: {e}")
 #!/usr/bin/env python3
 """
 admin/bot.py — Административный Telegram-бот + HTTP API для агентов.
@@ -461,7 +526,6 @@ async def post_init(application: Application):
 # Запуск
 # ---------------------------------------------------------------------------
 def main():
-        ptb_app.add_handler(CommandHandler("delbranch", cmd_delbranch))
     if not BOT_TOKEN:
         raise SystemExit("❌ BOT_TOKEN не задан. Создай .env файл.")
     if not ADMIN_USER_ID:
@@ -472,14 +536,13 @@ def main():
     t.start()
     log.info("HTTP API запущен на порту %s", PORT)
 
-    # Запустить Telegram-бота
     global ptb_app
     ptb_app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
-    
+
     # Основные команды
     ptb_app.add_handler(CommandHandler("start", cmd_start))
     ptb_app.add_handler(CallbackQueryHandler(on_callback))
-    
+
     # Админские команды
     ptb_app.add_handler(CommandHandler("addcode", cmd_addcode))
     ptb_app.add_handler(CommandHandler("delcode", cmd_delcode))
@@ -488,7 +551,10 @@ def main():
     ptb_app.add_handler(CommandHandler("delmod", cmd_delmod))
     ptb_app.add_handler(CommandHandler("listmods", cmd_listmods))
     ptb_app.add_handler(CommandHandler("addbranch", cmd_addbranch))
-    
+    ptb_app.add_handler(CommandHandler("delbranch", cmd_delbranch))
+    ptb_app.add_handler(CommandHandler("help", cmd_help))
+    ptb_app.add_handler(CommandHandler("setadmin", cmd_setadmin))
+
     ptb_app.job_queue.run_repeating(process_results_sender, interval=5, first=5)
 
     log.info("Telegram-бот запущен. Admin user_id=%s", ADMIN_USER_ID)
